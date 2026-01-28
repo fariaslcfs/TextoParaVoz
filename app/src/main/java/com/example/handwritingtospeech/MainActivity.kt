@@ -1,188 +1,3 @@
-/*
-package com.example.handwritingtospeech
-
-import android.os.Bundle
-import android.speech.tts.TextToSpeech
-import android.speech.tts.Voice
-import android.widget.*
-import androidx.appcompat.app.AppCompatActivity
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.common.model.RemoteModelManager
-import com.google.mlkit.vision.digitalink.*
-import java.util.Locale
-
-class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
-
-    private lateinit var handwritingView: HandwritingView
-    private lateinit var recognizedTextView: TextView
-    private lateinit var tts: TextToSpeech
-    private lateinit var recognizer: DigitalInkRecognizer
-
-    // Spinner opcional para selecionar vozes (desativado por enquanto)
-    private lateinit var voiceSpinner: Spinner
-
-    private var modelReady = false
-
-    // Classe auxiliar para armazenar vozes e nomes amigáveis
-    private data class VoiceItem(val voice: Voice, val displayName: String)
-
-    private val voiceItems = mutableListOf<VoiceItem>()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        handwritingView = findViewById(R.id.handwritingView)
-        recognizedTextView = findViewById(R.id.txtRecognized)
-//        voiceSpinner = findViewById(R.id.spinnerVoices)
-
-        tts = TextToSpeech(this, this)
-
-        // Inicializa o modelo de reconhecimento de escrita
-        val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")!!
-        val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
-        val modelManager = RemoteModelManager.getInstance()
-
-        val conditions = DownloadConditions.Builder()
-            .requireWifi()
-            .build()
-
-        modelManager.download(model, conditions)
-            .addOnSuccessListener {
-                modelReady = true
-                tts.speak("Reconhecimento de escrita pronto", TextToSpeech.QUEUE_FLUSH, null, null)
-            }
-            .addOnFailureListener {
-                modelReady = false
-                tts.speak("Falha ao baixar o modelo de escrita", TextToSpeech.QUEUE_FLUSH, null, null)
-            }
-
-        recognizer = DigitalInkRecognition.getClient(
-            DigitalInkRecognizerOptions.builder(model).build()
-        )
-
-        // Botão FALAR
-        findViewById<Button>(R.id.btnSpeak).setOnClickListener {
-            recognizeAndSpeak()
-        }
-
-        // Botão LIMPAR
-        findViewById<Button>(R.id.btnClear).setOnClickListener {
-            handwritingView.clear()
-            recognizedTextView.text = ""
-        }
-    }
-
-    override fun onInit(status: Int) {
-        if (status != TextToSpeech.SUCCESS) return
-
-        // Configura idioma, velocidade e pitch
-        tts.language = Locale("pt", "BR")
-        tts.setSpeechRate(0.95f)
-        tts.setPitch(1.0f)
-
-        // Seleciona a voz masculina offline se disponível
-        val desiredVoiceName = "pt-br-x-ptd-local"
-        val selectedVoice = tts.voices.firstOrNull { it.name == desiredVoiceName }
-
-        if (selectedVoice != null) {
-            tts.voice = selectedVoice
-        } else {
-            tts.speak("Voz pt-br-x-ptd-local não encontrada. Usando voz padrão.", TextToSpeech.QUEUE_FLUSH, null, null)
-        }
-
-//        loadAvailableVoices() // Spinner opcional
-    }
-
-    // Função opcional para carregar vozes no spinner
-    private fun loadAvailableVoices() {
-        val voiceLabels = mutableListOf<String>()
-        val voicesList = mutableListOf<Voice>()
-        var index = 1
-
-        for (voice in tts.voices) {
-            val locale = voice.locale
-            if (locale.language == "pt" && locale.country == "BR" && !voice.isNetworkConnectionRequired) {
-                val gender = if (voice.name == "pt-br-x-ptd-local") "Masculina" else "Feminina"
-                val label = "$index - ${voice.name} | Offline | $gender"
-                voiceLabels.add(label)
-                voicesList.add(voice)
-                index++
-            }
-        }
-
-        if (voiceLabels.isEmpty()) voiceLabels.add("Voz padrão do sistema")
-
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, voiceLabels)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        voiceSpinner.adapter = adapter
-
-        voiceSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: android.view.View?, position: Int, id: Long) {
-                if (voicesList.isNotEmpty() && position < voicesList.size) {
-                    tts.voice = voicesList[position]
-                    tts.speak("Voz selecionada", TextToSpeech.QUEUE_FLUSH, null, null)
-                }
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-    }
-
-    private fun recognizeAndSpeak() {
-        if (!modelReady) {
-            tts.speak(
-                "Aguarde, preparando o reconhecimento de escrita",
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                null
-            )
-            return
-        }
-
-        val ink = handwritingView.getInk()
-
-        if (ink.strokes.isEmpty()) {
-            tts.speak(
-                "Escreva algo antes de falar",
-                TextToSpeech.QUEUE_FLUSH,
-                null,
-                null
-            )
-            return
-        }
-
-        recognizer.recognize(ink)
-            .addOnSuccessListener { result ->
-                val text = result.candidates.firstOrNull()?.text ?: ""
-                recognizedTextView.text = text
-
-                if (text.isNotBlank()) {
-                    tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
-                } else {
-                    tts.speak(
-                        "Não consegui entender a escrita",
-                        TextToSpeech.QUEUE_FLUSH,
-                        null,
-                        null
-                    )
-                }
-            }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        tts.shutdown()
-    }
-}
-*/
-
-
-
-
-
-
-
-
 package com.example.handwritingtospeech
 
 import android.content.Intent
@@ -209,7 +24,6 @@ import java.util.Locale
 import android.view.inputmethod.InputMethodManager
 import androidx.core.graphics.toColorInt
 
-
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var handwritingView: HandwritingView
@@ -222,13 +36,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var txtModelStatus: TextView
 
     private var modelReady = false
-
     private val REQUIRED_VOICE = "pt-br-x-ptd-local"
     private val REQUIRED_LOCALE = Locale("pt", "BR")
-
     private lateinit var txtVoiceStatus: TextView
     private var voiceReady = false
-
     private var mediaPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -246,16 +57,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val btnSpeak: Button = findViewById(R.id.btnSpeak)
         btnSpeak.isEnabled = false          // ← Desabilita inicialmente
         btnSpeak.text = "Aguarde" // ← Opcional: muda texto para dar feedback
-
         tts = TextToSpeech(this, this)
-
-        // ... no onCreate, após inicializar views e btnSpeak.isEnabled = false ...
-
         val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")!!
         val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
         val modelManager = RemoteModelManager.getInstance()
 
-// Primeiro: checa se já está baixado
+        // Primeiro: checa se já está baixado
         modelManager.isModelDownloaded(model)
             .addOnSuccessListener { alreadyDownloaded ->
                 if (alreadyDownloaded) {
@@ -494,8 +301,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     android.view.WindowInsets.Type.statusBars()
                             or android.view.WindowInsets.Type.navigationBars()
                 )
-                it.systemBarsBehavior =
-                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                it.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         } else {
             @Suppress("DEPRECATION")
@@ -559,13 +365,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enterFullScreen()
     }
 
-
     override fun onPause() {
         super.onPause()
         exitFullScreen()
     }
-
-
 
     override fun onDestroy() {
         super.onDestroy()
