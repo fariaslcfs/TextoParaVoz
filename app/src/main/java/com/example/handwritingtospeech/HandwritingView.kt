@@ -44,14 +44,14 @@ class HandwritingView(context: Context, attrs: AttributeSet?) : View(context, at
 
             MotionEvent.ACTION_DOWN -> {
 
-                if (lastStrokeEndTime != 0L) {
+                /*if (lastStrokeEndTime != 0L) {
                     val pause = t - lastStrokeEndTime
                     if (pause > WORD_PAUSE_THRESHOLD) {
                         inkBuilder.addStroke(
                             Ink.Stroke.builder().build()
                         )
                     }
-                }
+                }*/
 
                 path.moveTo(x, y)
                 lastX = x
