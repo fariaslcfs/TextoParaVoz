@@ -57,9 +57,13 @@ dependencies {
     implementation(libs.androidx.core.ktx.v1131)
     implementation(libs.androidx.appcompat)
     implementation("com.google.android.material:material:1.13.0")
+    implementation(libs.androidx.compiler)
+
+    implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+
 }

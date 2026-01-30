@@ -1,3 +1,10 @@
 <resources>
     <string name="appname">TEXTO > VOZ</string>
+    <string name="falar">FALAR</string>
+    <string name="limpar">LIMPAR</string>
+    <string name="baixando_modelo_primeira_vez">Baixando modelo... (primeira vez)</string>
+    <string name="status_da_voz">Status da voz</string>
+    <string name="digite_o_texto_aqui">Digite o texto aqui</string>
+    <string name="teclado">Teclado</string>
+    <string name="manuscrito">Manuscrito</string>
 </resources>

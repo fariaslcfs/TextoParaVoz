@@ -56,7 +56,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         val btnSpeak: Button = findViewById(R.id.btnSpeak)
         btnSpeak.isEnabled = false          // ← Desabilita inicialmente
-        btnSpeak.text = "Aguarde" // ← Opcional: muda texto para dar feedback
+        btnSpeak.text = "AGUARDE"
+        btnSpeak.setTextColor("#dddd22".toColorInt())
+
         tts = TextToSpeech(this, this)
         val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")!!
         val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
@@ -73,6 +75,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     )
                     btnSpeak.isEnabled = true
                     btnSpeak.text = "FALAR"
+                    btnSpeak.setTextColor("#000000".toColorInt())
+
                     txtModelStatus.visibility = View.GONE  // esconde qualquer status
                     // Opcional: Toast.makeText(this, "Modelo pt-BR já carregado", Toast.LENGTH_SHORT).show()
                 } else {
@@ -80,7 +84,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
                     txtModelStatus.visibility = View.VISIBLE
                     btnSpeak.isEnabled = false
-                    btnSpeak.text = "Aguarde..."
+                    btnSpeak.text = "AGUARDE"
 
                     val conditions = DownloadConditions.Builder()
                         .requireWifi()  // ou .build() para permitir dados móveis
@@ -94,7 +98,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             )
                             btnSpeak.isEnabled = true
                             btnSpeak.text = "FALAR"
-                            txtModelStatus?.visibility = View.GONE
+                            btnSpeak.setTextColor("#000000".toColorInt())
+                            txtModelStatus.visibility = View.GONE
                             Toast.makeText(this, "Modelo carregado com sucesso!", Toast.LENGTH_SHORT).show()
                             playSuccessBeep()
                         }
@@ -103,7 +108,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             btnSpeak.isEnabled = false
                             btnSpeak.text = "Erro no modelo"
                             txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
-                            txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
+                            txtModelStatus.setBackgroundColor("#D3D3D3".toColorInt())
                             Toast.makeText(this, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                 }
@@ -112,7 +117,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 // Raro, mas se falhar na checagem → tenta baixar anyway
                 // ou trata como erro
                 txtModelStatus.text = "Erro ao verificar modelo."
-                txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
+                txtModelStatus.setBackgroundColor("#D3D3D3".toColorInt())
             }
 
         // Botão FALAR
@@ -191,8 +196,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             selectPreferredVoice() -> {
                 voiceReady = true
                 updateVoiceStatus(
-                    "Português Brasil",
-                    "#388E3C"
+                    "Idioma: Português Brasil",
+                    "#A3A3A3"
                 )
             }
 

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/rootLayout"
     android:orientation="vertical"
     android:padding="16dp"
@@ -21,17 +22,19 @@
             android:id="@+id/radioHandwriting"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manuscrito"
+            android:text="@string/manuscrito"
             android:checked="true"
-            android:textSize="18sp"/>
+            android:textStyle="bold"
+            android:textSize="20sp"/>
 
         <RadioButton
             android:id="@+id/radioKeyboard"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Teclado"
-            android:textSize="18sp"
-            android:layout_marginStart="24dp"/>
+            android:layout_marginStart="24dp"
+            android:text="@string/teclado"
+            android:textSize="20sp"
+            android:textStyle="bold" />
     </RadioGroup>
 
     <!-- Área de entrada (manuscrito / teclado) -->
@@ -51,7 +54,7 @@
             android:id="@+id/editTextTyped"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:hint="Digite o texto aqui"
+            android:hint="@string/digite_o_texto_aqui"
             android:visibility="gone"
             android:inputType="textMultiLine"
             android:gravity="top|start"
@@ -80,12 +83,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:background="#888888"
+        android:background="#A3A3A3"
         android:gravity="center"
         android:padding="10dp"
-        android:text="Status da voz"
+        android:text="@string/status_da_voz"
         android:textColor="#FFFFFF"
-        android:textSize="16sp"
+        android:textSize="20sp"
         android:textStyle="bold" />
 
     <!-- Wrapper para isolar o status + botões (isso evita sobreposição) -->
@@ -107,14 +110,13 @@
             android:id="@+id/txtModelStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Baixando modelo... (primeira vez)"
+            android:text="@string/baixando_modelo_primeira_vez"
             android:gravity="center"
             android:padding="12dp"
             android:textColor="#FFFFFF"
             android:background="#1976D2"
             android:visibility="gone" />
 
-        <!-- Botões lado a lado -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -126,7 +128,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="FALAR"
+                android:text="@string/falar"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:layout_marginEnd="8dp"
@@ -137,7 +139,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="LIMPAR"
+                android:text="@string/limpar"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:backgroundTint="#F44336" />
