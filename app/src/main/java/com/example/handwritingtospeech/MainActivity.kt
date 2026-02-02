@@ -3,12 +3,13 @@ package com.example.handwritingtospeech
 import android.content.Intent
 import android.graphics.Color
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
@@ -34,6 +35,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var inputModeRadioGroup: RadioGroup
     private lateinit var rootLayout: View
     private lateinit var txtModelStatus: TextView
+    private lateinit var progressModel: ProgressBar
+    private lateinit var modelStatusContainer: View
+    private lateinit var btnSpeak: Button
 
     private var modelReady = false
     private val REQUIRED_VOICE = "pt-br-x-ptd-local"
@@ -46,6 +50,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Inicialização das views
         handwritingView = findViewById(R.id.handwritingView)
         typedEditText = findViewById(R.id.editTextTyped)
         recognizedTextView = findViewById(R.id.txtRecognized)
@@ -53,41 +58,51 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         txtVoiceStatus = findViewById(R.id.txtVoiceStatus)
         rootLayout = findViewById(R.id.rootLayout)
         txtModelStatus = findViewById(R.id.txtModelStatus)
+        progressModel = findViewById(R.id.progressModel)
+        modelStatusContainer = findViewById(R.id.modelStatusContainer)
+        btnSpeak = findViewById(R.id.btnSpeak)
 
-        val btnSpeak: Button = findViewById(R.id.btnSpeak)
-        btnSpeak.isEnabled = false          // ← Desabilita inicialmente
+        // Estado inicial do botão FALAR
+        btnSpeak.isEnabled = false
         btnSpeak.text = "AGUARDE"
-        btnSpeak.setTextColor("#dddd22".toColorInt())
+        btnSpeak.setTextColor("#DDDD22".toColorInt())  // amarelo claro enquanto aguarda
 
         tts = TextToSpeech(this, this)
-        val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")!!
+
+        val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
+        if (modelIdentifier == null) {
+            txtModelStatus.text = "Idioma pt-BR não suportado"
+            txtModelStatus.setBackgroundColor(Color.parseColor("#D32F2F"))
+            modelStatusContainer.visibility = View.VISIBLE
+            return
+        }
+
         val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
         val modelManager = RemoteModelManager.getInstance()
 
-        // Primeiro: checa se já está baixado
         modelManager.isModelDownloaded(model)
             .addOnSuccessListener { alreadyDownloaded ->
                 if (alreadyDownloaded) {
-                    // Já existe → pronto imediatamente!
                     modelReady = true
                     recognizer = DigitalInkRecognition.getClient(
                         DigitalInkRecognizerOptions.builder(model).build()
                     )
                     btnSpeak.isEnabled = true
                     btnSpeak.text = "FALAR"
-                    btnSpeak.setTextColor("#000000".toColorInt())
-
-                    txtModelStatus.visibility = View.GONE  // esconde qualquer status
-                    // Opcional: Toast.makeText(this, "Modelo pt-BR já carregado", Toast.LENGTH_SHORT).show()
+                    btnSpeak.setTextColor(Color.WHITE)
+                    modelStatusContainer.visibility = View.GONE
                 } else {
-                    // Não existe → inicia download e mostra status
-                    txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
+                    modelStatusContainer.visibility = View.VISIBLE
                     txtModelStatus.visibility = View.VISIBLE
+                    txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
+                    progressModel.isIndeterminate = true
+                    progressModel.visibility = View.VISIBLE
                     btnSpeak.isEnabled = false
-                    btnSpeak.text = "AGUARDE"
+                    btnSpeak.text = "Aguarde..."
+                    btnSpeak.setTextColor("#DDDD22".toColorInt())
 
                     val conditions = DownloadConditions.Builder()
-                        .requireWifi()  // ou .build() para permitir dados móveis
+                        .requireWifi()
                         .build()
 
                     modelManager.download(model, conditions)
@@ -98,30 +113,31 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             )
                             btnSpeak.isEnabled = true
                             btnSpeak.text = "FALAR"
-                            btnSpeak.setTextColor("#000000".toColorInt())
-                            txtModelStatus.visibility = View.GONE
-                            Toast.makeText(this, "Modelo carregado com sucesso!", Toast.LENGTH_SHORT).show()
+                            btnSpeak.setTextColor(Color.WHITE)
+                            modelStatusContainer.visibility = View.GONE
+                            Toast.makeText(this, "Modelo carregado!", Toast.LENGTH_SHORT).show()
                             playSuccessBeep()
                         }
                         .addOnFailureListener { e ->
                             modelReady = false
                             btnSpeak.isEnabled = false
                             btnSpeak.text = "Erro no modelo"
+                            btnSpeak.setTextColor(Color.parseColor("#D32F2F"))
                             txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
-                            txtModelStatus.setBackgroundColor("#D3D3D3".toColorInt())
+                            txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
+                            progressModel.visibility = View.GONE
                             Toast.makeText(this, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                 }
             }
             .addOnFailureListener {
-                // Raro, mas se falhar na checagem → tenta baixar anyway
-                // ou trata como erro
+                modelStatusContainer.visibility = View.VISIBLE
                 txtModelStatus.text = "Erro ao verificar modelo."
-                txtModelStatus.setBackgroundColor("#D3D3D3".toColorInt())
+                txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
             }
 
         // Botão FALAR
-        findViewById<Button>(R.id.btnSpeak).setOnClickListener {
+        btnSpeak.setOnClickListener {
             speakCurrentInput()
         }
 
@@ -133,18 +149,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // Alternar entre manuscrito e teclado
         inputModeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-
                 R.id.radioHandwriting -> {
-
-                    // Remove foco do EditText
                     typedEditText.clearFocus()
                     typedEditText.isFocusable = false
                     typedEditText.isFocusableInTouchMode = false
-
-                    // Força foco no layout raiz
                     rootLayout.requestFocus()
 
-                    // Esconde teclado com token correto
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.hideSoftInputFromWindow(rootLayout.windowToken, 0)
 
@@ -154,9 +164,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                     enterFullScreen()
                 }
-
                 R.id.radioKeyboard -> {
-
                     exitFullScreen()
 
                     handwritingView.visibility = View.GONE
@@ -170,9 +178,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
                 }
-
-
-
             }
         }
 
@@ -181,10 +186,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) {
-            updateVoiceStatus(
-                "Erro ao inicializar Text-to-Speech",
-                "#D32F2F"
-            )
+            updateVoiceStatus("Erro ao inicializar Text-to-Speech", "#D32F2F")
             return
         }
 
@@ -195,30 +197,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         when {
             selectPreferredVoice() -> {
                 voiceReady = true
-                updateVoiceStatus(
-                    "Idioma: Português Brasil",
-                    "#A3A3A3"
-                )
+                updateVoiceStatus("Português Brasil", "#388E3C")
             }
-
             selectFallbackVoice() -> {
                 voiceReady = true
-                updateVoiceStatus(
-                    "Usando voz padrão do sistema",
-                    "#FBC02D"
-                )
+                updateVoiceStatus("Usando voz padrão do sistema", "#FBC02D")
             }
-
             else -> {
                 voiceReady = false
-                updateVoiceStatus(
-                    "Nenhuma voz em Português instalada",
-                    "#D32F2F"
-                )
-
-                startActivity(
-                    Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
-                )
+                updateVoiceStatus("Nenhuma voz em Português instalada", "#D32F2F")
+                startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
             }
         }
     }
@@ -232,7 +220,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val voices = tts.voices ?: return false
 
         val preferred = voices.firstOrNull {
-            it.name == "pt-br-x-ptd-local" &&
+            it.name == REQUIRED_VOICE &&
                     it.locale.language == "pt" &&
                     !it.isNetworkConnectionRequired
         }
@@ -240,9 +228,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return if (preferred != null) {
             tts.voice = preferred
             true
-        } else {
-            false
-        }
+        } else false
     }
 
     private fun selectFallbackVoice(): Boolean {
@@ -255,19 +241,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         return if (fallback != null) {
             tts.voice = fallback
             true
-        } else {
-            false
-        }
+        } else false
     }
 
     private fun speakCurrentInput() {
-
         if (!voiceReady) {
-            Toast.makeText(
-                this,
-                "Voz não está pronta para uso",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, "Voz não está pronta para uso", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -284,12 +263,20 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 tts.speak("Escreva algo antes de falar", TextToSpeech.QUEUE_FLUSH, null, null)
                 return
             }
+
+            Log.d("RECOGNIZE", "Iniciando reconhecimento - ${ink.strokes.size} strokes")
+
             recognizer.recognize(ink)
                 .addOnSuccessListener { result ->
+                    Log.d("RECOGNIZE", "Sucesso: ${result.candidates.size} candidatos")
                     val text = result.candidates.firstOrNull()?.text ?: ""
                     recognizedTextView.text = text
                     if (text.isNotBlank()) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
                     else tts.speak("Não consegui entender a escrita", TextToSpeech.QUEUE_FLUSH, null, null)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("RECOGNIZE", "Falha: ${e.message}", e)
+                    tts.speak("Erro ao reconhecer a escrita", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
         } else {
             val text = typedEditText.text.toString()
@@ -297,6 +284,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             if (text.isNotBlank()) tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
             else tts.speak("Digite algum texto antes de falar", TextToSpeech.QUEUE_FLUSH, null, null)
         }
+    }
+
+    private fun clearCurrentInput() {
+        val isHandwriting = inputModeRadioGroup.checkedRadioButtonId == R.id.radioHandwriting
+        if (isHandwriting) handwritingView.clear()
+        else typedEditText.text.clear()
+        recognizedTextView.text = ""
     }
 
     private fun enterFullScreen() {
@@ -346,26 +340,15 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             mediaPlayer?.setOnCompletionListener { it.release() }
             mediaPlayer?.start()
         } catch (e: Exception) {
-            // Silencioso se falhar (ex: arquivo não encontrado)
+            // Silencioso se falhar
         }
-    }
-
-    private fun clearCurrentInput() {
-        val isHandwriting = inputModeRadioGroup.checkedRadioButtonId == R.id.radioHandwriting
-        if (isHandwriting) handwritingView.clear()
-        else typedEditText.text.clear()
-        recognizedTextView.text = ""
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)
-
-        // Força modo manuscrito real na inicialização
         inputModeRadioGroup.check(R.id.radioHandwriting)
-
         handwritingView.visibility = View.VISIBLE
         typedEditText.visibility = View.GONE
-
         hideKeyboard()
         enterFullScreen()
     }
@@ -382,5 +365,4 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         mediaPlayer = null
         exitFullScreen()
     }
-
 }
