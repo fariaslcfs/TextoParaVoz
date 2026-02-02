@@ -1,18 +1,12 @@
 package com.example.handwritingtospeech
 
-import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.media.MediaPlayer
-import android.net.ConnectivityManager
-import android.net.NetworkInfo
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.View
-import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
@@ -20,7 +14,6 @@ import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.toColorInt
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognition
@@ -29,6 +22,8 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognitionModel
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
+import android.view.inputmethod.InputMethodManager
+import androidx.core.graphics.toColorInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
@@ -74,20 +69,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         tts = TextToSpeech(this, this)
 
-        if (!isNetworkAvailable()) {
-            Toast.makeText(this, "Sem conexão com a internet", Toast.LENGTH_LONG).show()
-            // Opcional: desabilitar botão ou mostrar mensagem fixa
-            btnSpeak.isEnabled = false
-            btnSpeak.text = "Sem internet"
-            modelStatusContainer.visibility = View.GONE
-            return  // interrompe o onCreate aqui
-        }
-
         val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
         if (modelIdentifier == null) {
-            txtModelStatus.text = "Idioma pt-BR não suportado"
+            txtModelStatus.text = "Idioma pt-BR não suportado neste dispositivo"
             txtModelStatus.setBackgroundColor(Color.parseColor("#D32F2F"))
             modelStatusContainer.visibility = View.VISIBLE
+            btnSpeak.isEnabled = false
+            btnSpeak.text = "Não suportado"
+            btnSpeak.setTextColor(Color.parseColor("#D32F2F"))
             return
         }
 
@@ -108,11 +97,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 } else {
                     modelStatusContainer.visibility = View.VISIBLE
                     txtModelStatus.visibility = View.VISIBLE
-                    txtModelStatus.text = "Baixando modelo (~20 MB). Certifique-se de ter espaço suficiente."
+                    txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
                     progressModel.isIndeterminate = true
                     progressModel.visibility = View.VISIBLE
                     btnSpeak.isEnabled = false
-                    btnSpeak.text = "AGUARDE"
+                    btnSpeak.text = "Aguarde..."
                     btnSpeak.setTextColor("#DDDD22".toColorInt())
 
                     val conditions = DownloadConditions.Builder()
@@ -201,37 +190,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) {
             updateVoiceStatus("Erro ao inicializar Text-to-Speech", "#D32F2F")
-            Toast.makeText(this, "Falha na inicialização da voz. Tente reiniciar o app.", Toast.LENGTH_LONG).show()
             return
         }
 
-        tts.language = REQUIRED_LOCALE
+        tts.language = Locale("pt", "BR")
         tts.setSpeechRate(0.95f)
         tts.setPitch(1.0f)
 
-        // Pequeno delay para garantir que as vozes estejam carregadas (Android antigo)
-        Handler(Looper.getMainLooper()).postDelayed({
-            when {
-                selectPreferredVoice() -> {
-                    voiceReady = true
-                    updateVoiceStatus("Português Brasil", "#388E3C")
-                }
-                selectFallbackVoice() -> {
-                    voiceReady = true
-                    updateVoiceStatus("Usando voz padrão do sistema", "#FBC02D")
-                }
-                else -> {
-                    voiceReady = false
-                    updateVoiceStatus("Nenhuma voz em Português instalada", "#D32F2F")
-                    Toast.makeText(
-                        this,
-                        "É necessário instalar a voz em Português Brasil",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
-                }
+        when {
+            selectPreferredVoice() -> {
+                voiceReady = true
+                updateVoiceStatus("Português Brasil", "#388E3C")
             }
-        }, 500)  // 0,5 segundo de espera
+            selectFallbackVoice() -> {
+                voiceReady = true
+                updateVoiceStatus("Usando voz padrão do sistema", "#FBC02D")
+            }
+            else -> {
+                voiceReady = false
+                updateVoiceStatus("Nenhuma voz em Português instalada", "#D32F2F")
+                startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+            }
+        }
     }
 
     private fun updateVoiceStatus(text: String, colorHex: String) {
@@ -365,12 +345,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             // Silencioso se falhar
         }
-    }
-
-    private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork: NetworkInfo? = connectivityManager.activeNetworkInfo
-        return activeNetwork?.isConnectedOrConnecting == true
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
