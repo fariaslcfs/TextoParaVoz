@@ -23,6 +23,7 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
 import android.view.inputmethod.InputMethodManager
+import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.toColorInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -206,7 +207,16 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             else -> {
                 voiceReady = false
                 updateVoiceStatus("Nenhuma voz em Português instalada", "#D32F2F")
-                startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+
+                AlertDialog.Builder(this)
+                    .setTitle("Voz não instalada")
+                    .setMessage("Este aplicativo precisa de uma voz em Português Brasil para falar. Deseja instalar agora?")
+                    .setPositiveButton("Sim, instalar") { _, _ ->
+                        startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+                    }
+                    .setNegativeButton("Não agora") { dialog, _ -> dialog.dismiss() }
+                    .setCancelable(false)
+                    .show()
             }
         }
     }
