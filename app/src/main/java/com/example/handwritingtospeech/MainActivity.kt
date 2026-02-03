@@ -62,9 +62,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!isNetworkAvailable() && !modelReady) {
-            showNoInternetAndClose()
-        }
         setContentView(R.layout.activity_main)
 
         // Inicialização das views
@@ -109,6 +106,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     btnSpeak.setTextColor(Color.WHITE)
                     modelStatusContainer.visibility = View.GONE
                 } else {
+                    if (!isNetworkAvailable() && !modelReady) {
+                        showNoInternetAndClose()
+                    }
                     modelStatusContainer.visibility = View.VISIBLE
                     txtModelStatus.visibility = View.VISIBLE
                     txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
