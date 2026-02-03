@@ -1,19 +1,32 @@
 package com.example.handwritingtospeech
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.text.LineBreaker
+import android.graphics.text.LineBreaker.*
 import android.media.MediaPlayer
+import android.net.ConnectivityManager
+import android.net.NetworkInfo
+import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
+import android.view.Gravity
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.toColorInt
+import androidx.core.os.postDelayed
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognition
@@ -22,9 +35,7 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognitionModel
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
-import android.view.inputmethod.InputMethodManager
-import androidx.appcompat.app.AlertDialog
-import androidx.core.graphics.toColorInt
+import java.util.logging.Handler
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
@@ -47,8 +58,13 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var voiceReady = false
     private var mediaPlayer: MediaPlayer? = null
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!isNetworkAvailable() && !modelReady) {
+            showNoInternetAndClose()
+        }
         setContentView(R.layout.activity_main)
 
         // Inicialização das views
@@ -99,7 +115,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     progressModel.isIndeterminate = true
                     progressModel.visibility = View.VISIBLE
                     btnSpeak.isEnabled = false
-                    btnSpeak.text = "Aguarde..."
+                    btnSpeak.text = "AGUARDE"
                     btnSpeak.setTextColor("#DDDD22".toColorInt())
 
                     val conditions = DownloadConditions.Builder()
@@ -219,6 +235,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     .show()
             }
         }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork: NetworkInfo? = connectivityManager.activeNetworkInfo
+        return activeNetwork?.isConnectedOrConnecting == true
     }
 
     private fun updateVoiceStatus(text: String, colorHex: String) {
@@ -352,6 +374,46 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         } catch (e: Exception) {
             // Silencioso se falhar
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun showNoInternetAndClose() {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("SEM CONEXÃO")
+            .setMessage(
+                "\nO aplicativo precisa baixar o modelo de reconhecimento de escrita na primeira vez.\n\n" +
+                        "Conecte-se à internet e abra novamente o aplicativo.\n\n" +
+                        "Fechando automaticamente em alguns segundos..."
+            )
+            .setCancelable(false)
+            .create()
+
+        dialog.setOnShowListener {
+            // Título centralizado
+            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+            }
+
+            // Mensagem justificada
+            dialog.findViewById<TextView>(android.R.id.message)?.apply {
+                gravity = Gravity.FILL_HORIZONTAL
+                textAlignment = View.TEXT_ALIGNMENT_GRAVITY
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    justificationMode = JUSTIFICATION_MODE_INTER_WORD
+                }
+                setLineSpacing(0f, 1.3f)
+            }
+        }
+
+        dialog.show()
+
+        android.os.Handler(Looper.getMainLooper()).postDelayed({
+            if (dialog.isShowing) {
+                dialog.dismiss()
+            }
+            finish()
+        }, 8000)
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
