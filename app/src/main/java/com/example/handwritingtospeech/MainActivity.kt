@@ -1,32 +1,28 @@
 package com.example.handwritingtospeech
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.text.LineBreaker
-import android.graphics.text.LineBreaker.*
 import android.media.MediaPlayer
 import android.net.ConnectivityManager
 import android.net.NetworkInfo
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.view.Gravity
 import android.view.View
-import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.toColorInt
-import androidx.core.os.postDelayed
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognition
@@ -35,7 +31,8 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognitionModel
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
-import java.util.logging.Handler
+import android.view.inputmethod.InputMethodManager
+import androidx.core.graphics.toColorInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
@@ -58,10 +55,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var voiceReady = false
     private var mediaPlayer: MediaPlayer? = null
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    private val prefs by lazy { getSharedPreferences("app_state", Context.MODE_PRIVATE) }
+    private val KEY_MODEL_DOWNLOADED = "model_downloaded_success"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
 
         // Inicialização das views
@@ -76,82 +74,112 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         modelStatusContainer = findViewById(R.id.modelStatusContainer)
         btnSpeak = findViewById(R.id.btnSpeak)
 
-        // Estado inicial do botão FALAR
         btnSpeak.isEnabled = false
         btnSpeak.text = "AGUARDE"
-        btnSpeak.setTextColor("#DDDD22".toColorInt())  // amarelo claro enquanto aguarda
+        btnSpeak.setTextColor("#DDDD22".toColorInt())
 
         tts = TextToSpeech(this, this)
 
-        val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
-        if (modelIdentifier == null) {
-            txtModelStatus.text = "Idioma pt-BR não suportado"
-            txtModelStatus.setBackgroundColor(Color.parseColor("#D32F2F"))
-            modelStatusContainer.visibility = View.VISIBLE
-            return
-        }
+        // 1. Checagem rápida via flag (muito útil no Android 7)
+        if (prefs.getBoolean(KEY_MODEL_DOWNLOADED, false)) {
+            Log.d("MODEL_CHECK", "Flag indica modelo baixado anteriormente → assumindo pronto")
+            modelReady = true
+            tryInitializeRecognizer()
+            btnSpeak.isEnabled = true
+            btnSpeak.text = "FALAR"
+            btnSpeak.setTextColor(Color.WHITE)
+            modelStatusContainer.visibility = View.GONE
+        } else {
+            // 2. Verificação real (assíncrona)
+            val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
+            if (modelIdentifier == null) {
+                Log.e("MODEL_CHECK", "Idioma pt-BR não suportado")
+                showErrorAndForceKeyboard("Idioma pt-BR não suportado neste dispositivo")
+                return
+            }
 
-        val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
-        val modelManager = RemoteModelManager.getInstance()
+            val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
+            val modelManager = RemoteModelManager.getInstance()
 
-        modelManager.isModelDownloaded(model)
-            .addOnSuccessListener { alreadyDownloaded ->
-                if (alreadyDownloaded) {
-                    modelReady = true
-                    recognizer = DigitalInkRecognition.getClient(
-                        DigitalInkRecognizerOptions.builder(model).build()
-                    )
-                    btnSpeak.isEnabled = true
-                    btnSpeak.text = "FALAR"
-                    btnSpeak.setTextColor(Color.WHITE)
-                    modelStatusContainer.visibility = View.GONE
-                } else {
-                    if (!isNetworkAvailable() && !modelReady) {
-                        showNoInternetAndClose()
+            modelManager.isModelDownloaded(model)
+                .addOnSuccessListener { alreadyDownloaded ->
+                    if (alreadyDownloaded) {
+                        Log.d("MODEL_CHECK", "Modelo já baixado (verificação confirmada)")
+                        prefs.edit().putBoolean(KEY_MODEL_DOWNLOADED, true).apply()
+                        modelReady = true
+                        recognizer = DigitalInkRecognition.getClient(
+                            DigitalInkRecognizerOptions.builder(model).build()
+                        )
+                        btnSpeak.isEnabled = true
+                        btnSpeak.text = "FALAR"
+                        btnSpeak.setTextColor(Color.WHITE)
+                        modelStatusContainer.visibility = View.GONE
+                    } else {
+                        Log.d("MODEL_CHECK", "Modelo não baixado ainda")
+                        if (!isNetworkAvailable()) {
+                            Log.w("NETWORK", "Sem internet → mostrando alerta e fechando")
+                            showNoInternetAndClose()
+                            return@addOnSuccessListener
+                        }
+
+                        Log.d("DOWNLOAD", "Iniciando download do modelo")
+                        modelStatusContainer.visibility = View.VISIBLE
+                        txtModelStatus.visibility = View.VISIBLE
+                        txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
+                        progressModel.isIndeterminate = true
+                        progressModel.visibility = View.VISIBLE
+                        btnSpeak.isEnabled = false
+                        btnSpeak.text = "AGUARDE"
+                        btnSpeak.setTextColor("#DDDD22".toColorInt())
+
+                        val conditions = DownloadConditions.Builder()
+                            .requireWifi()
+                            .build()
+
+                        modelManager.download(model, conditions)
+                            .addOnSuccessListener {
+                                Log.d("DOWNLOAD", "Download concluído com sucesso")
+                                modelReady = true
+                                prefs.edit().putBoolean(KEY_MODEL_DOWNLOADED, true).apply()
+                                recognizer = DigitalInkRecognition.getClient(
+                                    DigitalInkRecognizerOptions.builder(model).build()
+                                )
+                                btnSpeak.isEnabled = true
+                                btnSpeak.text = "FALAR"
+                                btnSpeak.setTextColor(Color.WHITE)
+                                modelStatusContainer.visibility = View.GONE
+                                Toast.makeText(this, "Modelo carregado!", Toast.LENGTH_SHORT).show()
+                                playSuccessBeep()
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("DOWNLOAD", "Falha no download", e)
+                                forceKeyboardMode()
+                                txtModelStatus.text = "Falha ao baixar modelo.\nUsando apenas teclado."
+                                txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
+                                progressModel.visibility = View.GONE
+                                Toast.makeText(this, "Download falhou. Use o teclado.", Toast.LENGTH_LONG).show()
+                            }
+
+                        // Timeout de segurança para Android 7 (90 segundos)
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            if (!modelReady) {
+                                Log.w("DOWNLOAD", "Timeout de 90s atingido → liberando modo teclado")
+                                forceKeyboardMode()
+                                txtModelStatus.text = "Tempo de download excedido.\nUsando apenas teclado."
+                                txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
+                                progressModel.visibility = View.GONE
+                                Toast.makeText(this, "Tempo esgotado. Use o teclado.", Toast.LENGTH_LONG).show()
+                            }
+                        }, 90_000)
                     }
-                    modelStatusContainer.visibility = View.VISIBLE
-                    txtModelStatus.visibility = View.VISIBLE
-                    txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
-                    progressModel.isIndeterminate = true
-                    progressModel.visibility = View.VISIBLE
-                    btnSpeak.isEnabled = false
-                    btnSpeak.text = "AGUARDE"
-                    btnSpeak.setTextColor("#DDDD22".toColorInt())
-
-                    val conditions = DownloadConditions.Builder()
-                        .requireWifi()
-                        .build()
-
-                    modelManager.download(model, conditions)
-                        .addOnSuccessListener {
-                            modelReady = true
-                            recognizer = DigitalInkRecognition.getClient(
-                                DigitalInkRecognizerOptions.builder(model).build()
-                            )
-                            btnSpeak.isEnabled = true
-                            btnSpeak.text = "FALAR"
-                            btnSpeak.setTextColor(Color.WHITE)
-                            modelStatusContainer.visibility = View.GONE
-                            Toast.makeText(this, "Modelo carregado!", Toast.LENGTH_SHORT).show()
-                            playSuccessBeep()
-                        }
-                        .addOnFailureListener { e ->
-                            modelReady = false
-                            btnSpeak.isEnabled = false
-                            btnSpeak.text = "Erro no modelo"
-                            btnSpeak.setTextColor(Color.parseColor("#D32F2F"))
-                            txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
-                            txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
-                            progressModel.visibility = View.GONE
-                            Toast.makeText(this, "Erro: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
                 }
-            }
-            .addOnFailureListener {
-                modelStatusContainer.visibility = View.VISIBLE
-                txtModelStatus.text = "Erro ao verificar modelo."
-                txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
-            }
+                .addOnFailureListener { e ->
+                    Log.e("MODEL_CHECK", "Falha ao verificar modelo", e)
+                    forceKeyboardMode()
+                    txtModelStatus.text = "Erro ao verificar modelo.\nUsando apenas teclado."
+                    txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
+                }
+        }
 
         // Botão FALAR
         btnSpeak.setOnClickListener {
@@ -201,6 +229,74 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         enterFullScreen()
     }
 
+    private fun tryInitializeRecognizer() {
+        try {
+            val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
+            if (modelIdentifier != null) {
+                val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
+                recognizer = DigitalInkRecognition.getClient(
+                    DigitalInkRecognizerOptions.builder(model).build()
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("RECOGNIZER", "Falha ao inicializar recognizer", e)
+        }
+    }
+
+    private fun forceKeyboardMode() {
+        btnSpeak.isEnabled = true
+        btnSpeak.text = "FALAR (teclado)"
+        btnSpeak.setTextColor(Color.WHITE)
+        inputModeRadioGroup.check(R.id.radioKeyboard)
+        handwritingView.visibility = View.GONE
+        typedEditText.visibility = View.VISIBLE
+        typedEditText.requestFocus()
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork: NetworkInfo? = connectivityManager.activeNetworkInfo
+        return activeNetwork?.isConnectedOrConnecting == true
+    }
+
+    private fun showNoInternetAndClose() {
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("SEM CONEXÃO")
+            .setMessage(
+                "\nO aplicativo precisa baixar o modelo de reconhecimento de escrita na primeira vez.\n\n" +
+                        "Conecte-se à internet e abra novamente o aplicativo.\n\n" +
+                        "Fechando automaticamente em alguns segundos..."
+            )
+            .setCancelable(false)
+            .create()
+
+        dialog.setOnShowListener {
+            // Título centralizado
+            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+            }
+            // Mensagem justificada
+            dialog.findViewById<TextView>(android.R.id.message)?.apply {
+                gravity = Gravity.FILL_HORIZONTAL
+                textAlignment = View.TEXT_ALIGNMENT_GRAVITY
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    justificationMode = LineBreaker.JUSTIFICATION_MODE_INTER_WORD
+                }
+                setLineSpacing(0f, 1.3f)
+            }
+        }
+
+        dialog.show()
+
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (dialog.isShowing) {
+                dialog.dismiss()
+            }
+            finish()
+        }, 8000)  // 8 segundos
+    }
+
     override fun onInit(status: Int) {
         if (status != TextToSpeech.SUCCESS) {
             updateVoiceStatus("Erro ao inicializar Text-to-Speech", "#D32F2F")
@@ -223,7 +319,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             else -> {
                 voiceReady = false
                 updateVoiceStatus("Nenhuma voz em Português instalada", "#D32F2F")
-
                 AlertDialog.Builder(this)
                     .setTitle("Voz não instalada")
                     .setMessage("Este aplicativo precisa de uma voz em Português Brasil para falar. Deseja instalar agora?")
@@ -235,12 +330,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     .show()
             }
         }
-    }
-
-    private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork: NetworkInfo? = connectivityManager.activeNetworkInfo
-        return activeNetwork?.isConnectedOrConnecting == true
     }
 
     private fun updateVoiceStatus(text: String, colorHex: String) {
@@ -376,44 +465,22 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun showNoInternetAndClose() {
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("SEM CONEXÃO")
-            .setMessage(
-                "\nO aplicativo precisa baixar o modelo de reconhecimento de escrita na primeira vez.\n\n" +
-                        "Conecte-se à internet e abra novamente o aplicativo.\n\n" +
-                        "Fechando automaticamente em alguns segundos..."
-            )
-            .setCancelable(false)
-            .create()
+    private fun showErrorAndForceKeyboard(message: String) {
+        modelStatusContainer.visibility = View.VISIBLE
+        txtModelStatus.text = message
+        txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))  // laranja para atenção
 
-        dialog.setOnShowListener {
-            // Título centralizado
-            dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)?.apply {
-                gravity = Gravity.CENTER
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-            }
+        btnSpeak.isEnabled = true
+        btnSpeak.text = "FALAR (teclado)"
+        btnSpeak.setTextColor(Color.WHITE)
 
-            // Mensagem justificada
-            dialog.findViewById<TextView>(android.R.id.message)?.apply {
-                gravity = Gravity.FILL_HORIZONTAL
-                textAlignment = View.TEXT_ALIGNMENT_GRAVITY
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    justificationMode = JUSTIFICATION_MODE_INTER_WORD
-                }
-                setLineSpacing(0f, 1.3f)
-            }
-        }
+        // Força modo teclado
+        inputModeRadioGroup.check(R.id.radioKeyboard)
+        handwritingView.visibility = View.GONE
+        typedEditText.visibility = View.VISIBLE
+        typedEditText.requestFocus()
 
-        dialog.show()
-
-        android.os.Handler(Looper.getMainLooper()).postDelayed({
-            if (dialog.isShowing) {
-                dialog.dismiss()
-            }
-            finish()
-        }, 8000)
+        Toast.makeText(this, "Modo manuscrito não disponível. Use o teclado.", Toast.LENGTH_LONG).show()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
