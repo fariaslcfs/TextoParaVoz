@@ -26,6 +26,7 @@ import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.common.model.RemoteModelManager
@@ -36,7 +37,6 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
 import android.view.inputmethod.InputMethodManager
-import androidx.annotation.RequiresApi
 import androidx.core.graphics.toColorInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -86,11 +86,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         tts = TextToSpeech(this, this)
 
-        // Detecta Android 7.x (onde o modelo não funciona)
+        // Detecta Android 7.x (onde o modelo quase nunca funciona)
         val isAndroid7 = Build.VERSION.SDK_INT in Build.VERSION_CODES.N..Build.VERSION_CODES.N_MR1
 
         if (isAndroid7) {
-            // Android 7 → modo teclado forçado, sem tentativa de download
+            // Android 7 → força modo teclado imediatamente
             modelStatusContainer.visibility = View.VISIBLE
             txtModelStatus.visibility = View.VISIBLE
             txtModelStatus.text = "Reconhecimento de escrita não disponível neste celular\n" +
@@ -99,7 +99,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
 
             btnSpeak.isEnabled = true
-            setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
+            btnSpeak.text = "FALAR"
+//            setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
             btnSpeak.setTextColor(Color.WHITE)
 
             inputModeRadioGroup.check(R.id.radioKeyboard)
@@ -109,7 +110,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
             Toast.makeText(this, "Android 7: usando apenas modo teclado", Toast.LENGTH_LONG).show()
 
-            // Não executa o código de download/verificação
         } else {
             // Android 8+ → tenta baixar o modelo normalmente
             val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
@@ -147,8 +147,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                         btnSpeak.text = "AGUARDE"
                         btnSpeak.setTextColor("#DDDD22".toColorInt())
 
+                        // Permite download em dados móveis (removido .requireWifi())
                         val conditions = DownloadConditions.Builder()
-                            .requireWifi()
                             .build()
 
                         modelManager.download(model, conditions)
@@ -167,6 +167,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             .addOnFailureListener { e ->
                                 modelReady = false
                                 btnSpeak.isEnabled = true
+                                btnSpeak.text = "FALAR"
                                 setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
                                 btnSpeak.setTextColor(Color.WHITE)
                                 txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
@@ -192,7 +193,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
 
                     btnSpeak.isEnabled = true
-                    setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
+                    btnSpeak.text = "FALAR"
+//                    setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
                     btnSpeak.setTextColor(Color.WHITE)
 
                     inputModeRadioGroup.check(R.id.radioKeyboard)
@@ -260,7 +262,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun forceKeyboardMode() {
         btnSpeak.isEnabled = true
-        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
+        btnSpeak.text = "FALAR"
+//        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
         btnSpeak.setTextColor(Color.WHITE)
         inputModeRadioGroup.check(R.id.radioKeyboard)
         handwritingView.visibility = View.GONE
@@ -488,10 +491,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private fun showErrorAndForceKeyboard(message: String) {
         modelStatusContainer.visibility = View.VISIBLE
         txtModelStatus.text = message
-        txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))  // laranja para atenção
+        txtModelStatus.setBackgroundColor("#FF9800".toColorInt())  // laranja para atenção
 
         btnSpeak.isEnabled = true
-        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
+        btnSpeak.text = "FALAR"
+//        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
         btnSpeak.setTextColor(Color.WHITE)
 
         // Força modo teclado
@@ -510,17 +514,33 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val start = fullText.indexOf("(")
         val end = fullText.length
 
-        spannable.setSpan(
-            AbsoluteSizeSpan(12, true),  // tamanho pequeno para "(teclado)"
-            start,
-            end,
-            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-        )
+        if (start >= 0) {
+            // Tamanho menor para a parte "(teclado)"
+            spannable.setSpan(
+                AbsoluteSizeSpan(12, true),  // 12sp — ajuste para 10 ou 11 se quiser ainda menor
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
 
-        // Opcional: cor mais suave para o "(teclado)"
-        spannable.setSpan(ForegroundColorSpan(Color.LTGRAY), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            // Cor mais suave (cinza claro) para destacar menos
+            spannable.setSpan(
+                ForegroundColorSpan("#AAAAAA".toColorInt()),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
 
+            // Opcional: itálico para a parte pequena (fica mais discreto ainda)
+            // spannable.setSpan(StyleSpan(Typeface.ITALIC), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+
+        // Define o texto com Spannable
         button.text = spannable
+
+        // Força atualização visual (importante em alguns casos)
+        button.invalidate()
+        button.requestLayout()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
