@@ -239,6 +239,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     typedEditText.requestFocus()
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
+                    // Esconde status e progress no modo teclado
+                    modelStatusContainer.visibility = View.GONE
+                    progressModel.visibility = View.GONE
                 }
             }
         }
