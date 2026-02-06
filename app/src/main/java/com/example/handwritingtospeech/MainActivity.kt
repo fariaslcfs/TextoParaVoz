@@ -168,7 +168,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                                 modelReady = false
                                 btnSpeak.isEnabled = true
                                 btnSpeak.text = "FALAR"
-                                setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
+//                                setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
                                 btnSpeak.setTextColor(Color.WHITE)
                                 txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
                                 txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
