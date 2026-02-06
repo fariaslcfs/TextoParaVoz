@@ -16,6 +16,7 @@ import android.speech.tts.TextToSpeech
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.AbsoluteSizeSpan
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -35,6 +36,7 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
 import android.view.inputmethod.InputMethodManager
+import androidx.annotation.RequiresApi
 import androidx.core.graphics.toColorInt
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
@@ -61,6 +63,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val prefs by lazy { getSharedPreferences("app_state", Context.MODE_PRIVATE) }
     private val KEY_MODEL_DOWNLOADED = "model_downloaded_success"
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -83,11 +86,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         tts = TextToSpeech(this, this)
 
-// Detecta se é Android 7.x (onde o modelo quase nunca funciona)
+        // Detecta Android 7.x (onde o modelo não funciona)
         val isAndroid7 = Build.VERSION.SDK_INT in Build.VERSION_CODES.N..Build.VERSION_CODES.N_MR1
 
         if (isAndroid7) {
-            // Android 7 → não tenta baixar modelo, vai direto para modo teclado
+            // Android 7 → modo teclado forçado, sem tentativa de download
             modelStatusContainer.visibility = View.VISIBLE
             txtModelStatus.visibility = View.VISIBLE
             txtModelStatus.text = "Reconhecimento de escrita não disponível neste celular\n" +
@@ -108,7 +111,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
             // Não executa o código de download/verificação
         } else {
-            // Android 8+ → comportamento normal (tenta baixar o modelo)
+            // Android 8+ → tenta baixar o modelo normalmente
             val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
             if (modelIdentifier == null) {
                 txtModelStatus.text = "Idioma pt-BR não suportado"
@@ -199,17 +202,17 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 }
         }
 
-// Botão FALAR
+        // Botão FALAR
         btnSpeak.setOnClickListener {
             speakCurrentInput()
         }
 
-// Botão LIMPAR
+        // Botão LIMPAR
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             clearCurrentInput()
         }
 
-// Alternar entre manuscrito e teclado
+        // Alternar entre manuscrito e teclado
         inputModeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.radioHandwriting -> {
@@ -224,7 +227,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     recognizedTextView.text = ""
                     enterFullScreen()
                 }
-
                 R.id.radioKeyboard -> {
                     exitFullScreen()
                     handwritingView.visibility = View.GONE
@@ -509,14 +511,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val end = fullText.length
 
         spannable.setSpan(
-            AbsoluteSizeSpan(8, true),  // tamanho pequeno para o "(teclado)"
+            AbsoluteSizeSpan(12, true),  // tamanho pequeno para "(teclado)"
             start,
             end,
             Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
         )
 
-        // Opcional: deixar o "(teclado)" em cor cinza claro para destacar menos
-        // spannable.setSpan(ForegroundColorSpan(Color.LTGRAY), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+        // Opcional: cor mais suave para o "(teclado)"
+        spannable.setSpan(ForegroundColorSpan(Color.LTGRAY), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
 
         button.text = spannable
     }
