@@ -13,6 +13,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.AbsoluteSizeSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -93,7 +96,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
 
             btnSpeak.isEnabled = true
-            btnSpeak.text = "FALAR (TECLADO)"
+            setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
             btnSpeak.setTextColor(Color.WHITE)
 
             inputModeRadioGroup.check(R.id.radioKeyboard)
@@ -161,7 +164,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                             .addOnFailureListener { e ->
                                 modelReady = false
                                 btnSpeak.isEnabled = true
-                                btnSpeak.text = "FALAR (TECLADO)"
+                                setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
                                 btnSpeak.setTextColor(Color.WHITE)
                                 txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
                                 txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
@@ -186,7 +189,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
 
                     btnSpeak.isEnabled = true
-                    btnSpeak.text = "FALAR (TECLADO)"
+                    setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
                     btnSpeak.setTextColor(Color.WHITE)
 
                     inputModeRadioGroup.check(R.id.radioKeyboard)
@@ -255,7 +258,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun forceKeyboardMode() {
         btnSpeak.isEnabled = true
-        btnSpeak.text = "FALAR (teclado)"
+        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
         btnSpeak.setTextColor(Color.WHITE)
         inputModeRadioGroup.check(R.id.radioKeyboard)
         handwritingView.visibility = View.GONE
@@ -486,7 +489,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))  // laranja para atenção
 
         btnSpeak.isEnabled = true
-        btnSpeak.text = "FALAR (teclado)"
+        setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
         btnSpeak.setTextColor(Color.WHITE)
 
         // Força modo teclado
@@ -496,6 +499,26 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         typedEditText.requestFocus()
 
         Toast.makeText(this, "Modo manuscrito não disponível. Use o teclado.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun setButtonTextWithSmallParenthesis(button: Button, mainText: String, smallText: String) {
+        val fullText = "$mainText ($smallText)"
+        val spannable = SpannableString(fullText)
+
+        val start = fullText.indexOf("(")
+        val end = fullText.length
+
+        spannable.setSpan(
+            AbsoluteSizeSpan(8, true),  // tamanho pequeno para o "(teclado)"
+            start,
+            end,
+            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        // Opcional: deixar o "(teclado)" em cor cinza claro para destacar menos
+        // spannable.setSpan(ForegroundColorSpan(Color.LTGRAY), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        button.text = spannable
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
