@@ -126,13 +126,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 txtModelStatus.textAlignment = View.TEXT_ALIGNMENT_CENTER
                 txtModelStatus.gravity = Gravity.CENTER
                 txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
-                txtModelStatus.text = "Escrita à mão não disponível neste dispositivo (Android 7 ou " +
-                                      "inferior). Use o TECLADO para digitar o texto e falar."
+                txtModelStatus.text = "Este dispositivo (Android 7 ou inferior) não suporta escrita à mão. Use o TECLADO para digitar e falar."
 
                 progressModel.visibility = View.GONE
 
                 // Mostra o campo de texto
-                typedEditText.visibility = View.VISIBLE
+                typedEditText.visibility = View.GONE
                 typedEditText.isFocusable = true
                 typedEditText.isFocusableInTouchMode = true
                 typedEditText.isEnabled = true
@@ -145,10 +144,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
                 // Reforço extra de foco/teclado
                 typedEditText.postDelayed({
+                    typedEditText.visibility = View.VISIBLE
                     typedEditText.requestFocusFromTouch()
                     typedEditText.requestFocus()
                     imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
-                }, 10200)
+                }, 6200)
 
                 // Força redesenho completo do layout (essencial no Android 7)
                 rootLayout.requestLayout()
@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             // Opcional: esconde a caixa após 10 segundos
             Handler(Looper.getMainLooper()).postDelayed({
                 modelStatusContainer.visibility = View.GONE
-            }, 10000)
+            }, 6000)
         }
         else {
             // Android 8+ → verifica ou baixa o modelo normalmente
