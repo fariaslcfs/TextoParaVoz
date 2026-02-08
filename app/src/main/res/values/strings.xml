@@ -13,5 +13,5 @@
     <string name="baixando_modelo_primeira_vez_20_mb">Baixando modelo - primeira vez ~20 MB</string>
     <string name="falha_ao_baixar_modelo_verifique_conex_o">Falha ao baixar modelo.\nVerifique conexão.</string>
     <string name="erro_ao_verificar_modelo">Erro ao verificar modelo.</string>
-    <string name="app_version">TextoParaVoz  v0.0.9-alpha</string>
+    <string name="app_version">TextoParaVoz  v0.0.8-alpha</string>
 </resources>
