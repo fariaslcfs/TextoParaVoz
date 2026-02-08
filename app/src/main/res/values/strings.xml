@@ -2,16 +2,16 @@
     <string name="appname">TEXTO > VOZ</string>
     <string name="falar">FALAR</string>
     <string name="limpar">LIMPAR</string>
-    <string name="baixando_modelo_primeira_vez">Baixando modelo... (primeira vez)</string>
+    <string name="baixando_modelo">Iniciando o download do modelo de reconhecimento de escrita à mão. Ocorre somente na primeira execução e tem um tamanho de 20 MB aproximadamente.</string>
     <string name="status_da_voz">Status da voz</string>
     <string name="digite_o_texto_aqui">Digite o texto aqui</string>
     <string name="teclado">Teclado</string>
     <string name="manuscrito">Manuscrito</string>
-    <string name="aguarde">AGUARDE</string>
+    <string name="aguarde">AGUARDE</string>9a
     <string name="reconhecimento_de_escrita_n_o_dispon_vel_neste_celular_android_7_use_o_teclado_para_digitar_o_texto_e_falar">Reconhecimento de escrita não disponível neste celular\n(Android 7)\n\nUse o TECLADO para digitar o texto e falar</string>
     <string name="idioma_pt_br_n_o_suportado">Idioma pt-BR não suportado</string>
     <string name="baixando_modelo_primeira_vez_20_mb">Baixando modelo - primeira vez ~20 MB</string>
     <string name="falha_ao_baixar_modelo_verifique_conex_o">Falha ao baixar modelo.\nVerifique conexão.</string>
     <string name="erro_ao_verificar_modelo">Erro ao verificar modelo.</string>
-    <string name="app_version">TextoParaVoz  v0.0.7-alpha</string>
+    <string name="app_version">TextoParaVoz  v0.0.8-alpha</string>
 </resources>

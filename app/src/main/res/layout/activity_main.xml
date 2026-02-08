@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rootLayout"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:focusable="true"
-    android:focusableInTouchMode="true">
+    android:focusableInTouchMode="true"
+    android:orientation="vertical"
+    android:padding="8dp">
 
     <!-- TextView com a versão do app (pequena, alinhada à direita ou centro) -->
     <TextView
@@ -24,25 +23,22 @@
         android:textStyle="bold" />
 
     <!-- Seleção de modo -->
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="1dp" />
-
     <RadioGroup
         android:id="@+id/radioGroupInputMode"
+        android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
+        android:gravity="center"
+        android:orientation="horizontal">
 
         <RadioButton
             android:id="@+id/radioHandwriting"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manuscrito"
             android:checked="true"
-            android:textStyle="bold"
-            android:textSize="20sp"/>
+            android:text="Manuscrito"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
         <RadioButton
             android:id="@+id/radioKeyboard"
@@ -55,44 +51,46 @@
     </RadioGroup>
 
     <!-- Área de entrada (manuscrito / teclado) -->
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginTop="12dp">
+        android:layout_marginTop="12dp"
+        android:layout_weight="1">
 
         <com.example.handwritingtospeech.HandwritingView
             android:id="@+id/handwritingView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#FFFFFF"/>
+            android:background="#FFFFFF" />
+
+        <TextView
+            android:id="@+id/txtNoHandwriting"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Modo manuscrito não disponível neste dispositivo\n(Android 7 ou inferior)"
+            android:textColor="#888888"
+            android:textSize="18sp"
+            android:visibility="gone" />
 
         <EditText
             android:id="@+id/editTextTyped"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:hint="Digite o texto aqui"
-            android:visibility="gone"
-            android:inputType="textMultiLine"
-            android:gravity="top|start"
-            android:textSize="18sp"
             android:background="#FFFFFF"
-            android:padding="12dp"/>
+            android:gravity="top|start"
+            android:hint="Digite o texto aqui"
+            android:inputType="textMultiLine"
+            android:padding="12dp"
+            android:textSize="18sp"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- Texto reconhecido -->
-    <TextView
-        android:id="@+id/txtRecognized"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#EEEEEE"
-        android:gravity="center"
-        android:minHeight="84dp"
-        android:padding="12dp"
-        android:text=""
-        android:textColor="#000000"
-        android:textSize="20sp"
-        android:layout_marginTop="12dp"/>
 
     <!-- Status da voz (permanece sempre visível) -->
     <TextView
@@ -113,28 +111,42 @@
         android:id="@+id/modelStatusContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
 
         <ProgressBar
             android:id="@+id/progressModel"
+            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:indeterminate="true"
-            android:visibility="gone"
-            style="?android:attr/progressBarStyleHorizontal" />
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/txtModelStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Baixando modelo... (primeira vez)"
-            android:gravity="center"
+            android:text="@string/baixando_modelo"
+            android:gravity="fill_horizontal"
             android:padding="12dp"
             android:textColor="#FFFFFF"
             android:background="#1976D2"
-            android:visibility="gone"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="16dp"
+            android:textAlignment="gravity"
+            android:justificationMode="inter_word"/>
+
+        <TextView
+            android:id="@+id/txtRecognized"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="#EEEEEE"
+            android:gravity="center"
+            android:minHeight="84dp"
+            android:padding="12dp"
+            android:text=""
+            android:textColor="#000000"
+            android:textSize="20sp" />
 
     </LinearLayout>
 
@@ -142,31 +154,31 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
         android:gravity="center_horizontal"
-        android:layout_marginTop="16dp">
+        android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnSpeak"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:text="FALAR"
-            android:textSize="20sp"
-            android:textStyle="bold"
             android:layout_marginEnd="8dp"
+            android:layout_weight="1"
             android:background="@drawable/button_background"
-            android:textColor="@android:color/white" />
+            android:text="@string/falar"
+            android:textColor="@android:color/white"
+            android:textSize="20sp" />
 
         <Button
             android:id="@+id/btnClear"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:text="LIMPAR"
-            android:textSize="20sp"
-            android:textStyle="bold"
+            android:layout_weight="1"
             android:background="@drawable/button_background_clear"
-            android:textColor="@android:color/white" />
+            android:text="@string/limpar"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
-    </LinearLayout></LinearLayout>
+    </LinearLayout>
+</LinearLayout>

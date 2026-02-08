@@ -1,5 +1,6 @@
 package com.example.handwritingtospeech
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -37,7 +38,10 @@ import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizer
 import com.google.mlkit.vision.digitalink.recognition.DigitalInkRecognizerOptions
 import java.util.Locale
 import android.view.inputmethod.InputMethodManager
+import android.widget.RadioButton
 import androidx.core.graphics.toColorInt
+import androidx.core.content.edit
+import androidx.core.view.isVisible
 
 class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
@@ -63,6 +67,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private val prefs by lazy { getSharedPreferences("app_state", Context.MODE_PRIVATE) }
     private val KEY_MODEL_DOWNLOADED = "model_downloaded_success"
 
+    private var hasShownAndroid7Warning = false
+
+    @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +87,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         modelStatusContainer = findViewById(R.id.modelStatusContainer)
         btnSpeak = findViewById(R.id.btnSpeak)
 
+        // Carrega estado persistente do modelo
+        modelReady = prefs.getBoolean(KEY_MODEL_DOWNLOADED, false)
+
         btnSpeak.isEnabled = false
         btnSpeak.text = "AGUARDE"
         btnSpeak.setTextColor("#DDDD22".toColorInt())
@@ -90,70 +100,116 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         val isAndroid7 = Build.VERSION.SDK_INT in Build.VERSION_CODES.N..Build.VERSION_CODES.N_MR1
 
         if (isAndroid7) {
-            // Android 7 → força modo teclado imediatamente
-            modelStatusContainer.visibility = View.VISIBLE
-            txtModelStatus.visibility = View.VISIBLE
-            txtModelStatus.text = "Reconhecimento de escrita não disponível neste celular\n" +
-                    "(Android 7)\n\n" +
-                    "Use o TECLADO para digitar o texto e falar"
-            txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
+            // Esconde o RadioGroup inteiro
+            inputModeRadioGroup.visibility = View.GONE
 
+            // Área de escrita desabilitada e escondida desde o início
+            handwritingView.isEnabled = false
+            handwritingView.isClickable = false
+            handwritingView.isFocusable = false
+            handwritingView.isFocusableInTouchMode = false
+            handwritingView.visibility = View.GONE
+
+            // Botão FALAR habilitado
             btnSpeak.isEnabled = true
             btnSpeak.text = "FALAR"
-//            setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
             btnSpeak.setTextColor(Color.WHITE)
 
-            inputModeRadioGroup.check(R.id.radioKeyboard)
-            handwritingView.visibility = View.GONE
-            typedEditText.visibility = View.VISIBLE
-            typedEditText.requestFocus()
+            // Tudo que precisa de layout pronto vai dentro do post
+            rootLayout.post {
+               // Garante modo teclado ativo
+                inputModeRadioGroup.check(R.id.radioKeyboard)
 
-            Toast.makeText(this, "Android 7: usando apenas modo teclado", Toast.LENGTH_LONG).show()
-
-        } else {
-            // Android 8+ → tenta baixar o modelo normalmente
-            val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
-            if (modelIdentifier == null) {
-                txtModelStatus.text = "Idioma pt-BR não suportado"
-                txtModelStatus.setBackgroundColor(Color.parseColor("#D32F2F"))
+                // **Força a caixa de aviso aparecer**
                 modelStatusContainer.visibility = View.VISIBLE
-                return
+                txtModelStatus.visibility = View.VISIBLE
+                txtModelStatus.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                txtModelStatus.gravity = Gravity.CENTER
+                txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
+                txtModelStatus.text = "Escrita à mão não disponível neste dispositivo (Android 7 ou " +
+                                      "inferior). Use o TECLADO para digitar o texto e falar."
+
+                progressModel.visibility = View.GONE
+
+                // Mostra o campo de texto
+                typedEditText.visibility = View.VISIBLE
+                typedEditText.isFocusable = true
+                typedEditText.isFocusableInTouchMode = true
+                typedEditText.isEnabled = true
+
+                typedEditText.requestFocusFromTouch()
+                typedEditText.requestFocus()
+
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
+
+                // Reforço extra de foco/teclado
+                typedEditText.postDelayed({
+                    typedEditText.requestFocusFromTouch()
+                    typedEditText.requestFocus()
+                    imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
+                }, 10200)
+
+                // Força redesenho completo do layout (essencial no Android 7)
+                rootLayout.requestLayout()
+                modelStatusContainer.requestLayout()
+                txtModelStatus.requestLayout()
             }
 
-            val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
-            val modelManager = RemoteModelManager.getInstance()
+            // Opcional: esconde a caixa após 10 segundos
+            Handler(Looper.getMainLooper()).postDelayed({
+                modelStatusContainer.visibility = View.GONE
+            }, 10000)
+        }
+        else {
+            // Android 8+ → verifica ou baixa o modelo normalmente
+            if (modelReady) {
+                // Já baixado antes → habilita direto, sem progress
+                recognizer = DigitalInkRecognition.getClient(
+                    DigitalInkRecognizerOptions.builder(
+                        DigitalInkRecognitionModel.builder(
+                            DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")!!
+                        ).build()
+                    ).build()
+                )
+                btnSpeak.isEnabled = true
+                btnSpeak.text = "FALAR"
+                btnSpeak.setTextColor(Color.WHITE)
+                modelStatusContainer.visibility = View.GONE
+                progressModel.visibility = View.GONE
+                inputModeRadioGroup.visibility = View.VISIBLE
+            } else {
+                val modelIdentifier = DigitalInkRecognitionModelIdentifier.fromLanguageTag("pt-BR")
+                if (modelIdentifier == null) {
+                    modelStatusContainer.visibility = View.VISIBLE
+                    txtModelStatus.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    txtModelStatus.gravity = Gravity.CENTER
+                    txtModelStatus.text = "Idioma pt-BR não suportado"
+                    txtModelStatus.setBackgroundColor(Color.parseColor("#D32F2F"))
+                    progressModel.visibility = View.GONE
+                    inputModeRadioGroup.visibility = View.GONE
+                    return
+                }
 
-            modelManager.isModelDownloaded(model)
-                .addOnSuccessListener { alreadyDownloaded ->
-                    if (alreadyDownloaded) {
-                        modelReady = true
-                        recognizer = DigitalInkRecognition.getClient(
-                            DigitalInkRecognizerOptions.builder(model).build()
-                        )
-                        btnSpeak.isEnabled = true
-                        btnSpeak.text = "FALAR"
-                        btnSpeak.setTextColor(Color.WHITE)
-                        modelStatusContainer.visibility = View.GONE
-                    } else {
-                        if (!isNetworkAvailable() && !modelReady) {
-                            showNoInternetAndClose()
-                        }
-                        modelStatusContainer.visibility = View.VISIBLE
-                        txtModelStatus.visibility = View.VISIBLE
-                        txtModelStatus.text = "Baixando modelo - primeira vez ~20 MB"
-                        progressModel.isIndeterminate = true
-                        progressModel.visibility = View.VISIBLE
-                        btnSpeak.isEnabled = false
-                        btnSpeak.text = "AGUARDE"
-                        btnSpeak.setTextColor("#DDDD22".toColorInt())
+                val model = DigitalInkRecognitionModel.builder(modelIdentifier).build()
+                val modelManager = RemoteModelManager.getInstance()
 
-                        // Permite download em dados móveis (removido .requireWifi())
-                        val conditions = DownloadConditions.Builder()
-                            .build()
-
-                        modelManager.download(model, conditions)
-                            .addOnSuccessListener {
+                if (!isNetworkAvailable()) {
+                    // Sem conexão → erro, sem progress
+                    modelStatusContainer.visibility = View.VISIBLE
+                    txtModelStatus.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    txtModelStatus.gravity = Gravity.CENTER
+                    txtModelStatus.text = "Sem conexão com a internet.\nVerifique sua rede para baixar o modelo."
+                    txtModelStatus.setBackgroundColor(Color.parseColor("#FF9800"))
+                    progressModel.visibility = View.GONE
+                    showNoInternetAndClose()
+                } else {
+                    // Tem conexão → verifica se já está baixado
+                    modelManager.isModelDownloaded(model)
+                        .addOnSuccessListener { alreadyDownloaded ->
+                            if (alreadyDownloaded) {
                                 modelReady = true
+                                prefs.edit { putBoolean(KEY_MODEL_DOWNLOADED, true) }
                                 recognizer = DigitalInkRecognition.getClient(
                                     DigitalInkRecognizerOptions.builder(model).build()
                                 )
@@ -161,47 +217,94 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                                 btnSpeak.text = "FALAR"
                                 btnSpeak.setTextColor(Color.WHITE)
                                 modelStatusContainer.visibility = View.GONE
-                                Toast.makeText(this, "Modelo carregado!", Toast.LENGTH_SHORT).show()
-                                playSuccessBeep()
-                            }
-                            .addOnFailureListener { e ->
-                                modelReady = false
-                                btnSpeak.isEnabled = true
-                                btnSpeak.text = "FALAR"
-//                                setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
-                                btnSpeak.setTextColor(Color.WHITE)
-                                txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
-                                txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
                                 progressModel.visibility = View.GONE
 
-                                inputModeRadioGroup.check(R.id.radioKeyboard)
-                                handwritingView.visibility = View.GONE
-                                typedEditText.visibility = View.VISIBLE
-                                typedEditText.requestFocus()
+                                // Reabilita o RadioGroup após o download
+                                inputModeRadioGroup.visibility = View.VISIBLE
+                                inputModeRadioGroup.alpha = 1.0f
+                            } else {
+                                // Vai baixar → mostra progress
+                                // Desabilita o RadioGroup inteiro durante o download
+                                inputModeRadioGroup.visibility = View.GONE
+                                inputModeRadioGroup.alpha = 0.5f   // visualmente mais claro que está desativado
+                                modelStatusContainer.visibility = View.VISIBLE
+                                txtModelStatus.visibility = View.VISIBLE
+                                txtModelStatus.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                                txtModelStatus.gravity = Gravity.CENTER
+                                txtModelStatus.text = "Iniciando o download do modelo de reconhecimento de escrita à mão." +
+                                                      "Ocorre somente na primeira execução e tem um tamanho de 20 MB aproximadamente."
+                                txtModelStatus.setBackgroundColor(Color.parseColor("#1976D2"))
+                                progressModel.isIndeterminate = true
+                                progressModel.visibility = View.VISIBLE
+                                btnSpeak.isEnabled = false
+                                btnSpeak.text = "AGUARDE"
+                                btnSpeak.setTextColor("#DDDD22".toColorInt())
 
-                                Toast.makeText(
-                                    this,
-                                    "Download falhou. Use o modo teclado.",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                                val conditions = DownloadConditions.Builder().build()
+
+                                modelManager.download(model, conditions)
+                                    .addOnSuccessListener {
+                                        modelReady = true
+                                        prefs.edit { putBoolean(KEY_MODEL_DOWNLOADED, true) }
+                                        recognizer = DigitalInkRecognition.getClient(
+                                            DigitalInkRecognizerOptions.builder(model).build()
+                                        )
+                                        btnSpeak.isEnabled = true
+                                        btnSpeak.text = "FALAR"
+                                        btnSpeak.setTextColor(Color.WHITE)
+                                        modelStatusContainer.visibility = View.GONE
+                                        progressModel.visibility = View.GONE
+
+                                        // Reabilita alternância de modo após download
+                                        inputModeRadioGroup.visibility = View.VISIBLE
+                                        inputModeRadioGroup.alpha = 1.0f
+
+                                        Toast.makeText(this, "Modelo carregado!", Toast.LENGTH_SHORT).show()
+                                        playSuccessBeep()
+                                    }
+                                    .addOnFailureListener { e ->
+                                        modelReady = false
+                                        btnSpeak.isEnabled = true
+                                        btnSpeak.text = "FALAR"
+                                        btnSpeak.setTextColor(Color.WHITE)
+                                        txtModelStatus.text = "Falha ao baixar modelo.\nVerifique conexão."
+                                        txtModelStatus.setBackgroundColor("#FF9800".toColorInt())
+                                        progressModel.visibility = View.GONE
+
+                                        // Reabilita alternância mesmo na falha
+                                        inputModeRadioGroup.visibility = View.VISIBLE
+                                        inputModeRadioGroup.alpha = 1.0f
+
+                                        inputModeRadioGroup.check(R.id.radioKeyboard)
+                                        handwritingView.visibility = View.GONE
+                                        typedEditText.visibility = View.VISIBLE
+                                        typedEditText.requestFocus()
+
+                                        Toast.makeText(this, "Download falhou. Use o modo teclado.", Toast.LENGTH_LONG).show()
+                                    }
                             }
-                    }
-                }
-                .addOnFailureListener {
-                    modelStatusContainer.visibility = View.VISIBLE
-                    txtModelStatus.text = "Erro ao verificar modelo."
-                    txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
+                        }
+                        .addOnFailureListener {
+                            modelStatusContainer.visibility = View.VISIBLE
+                            txtModelStatus.text = "Erro ao verificar modelo."
+                            txtModelStatus.setBackgroundColor("#D32F2F".toColorInt())
+                            progressModel.visibility = View.GONE
 
-                    btnSpeak.isEnabled = true
-                    btnSpeak.text = "FALAR"
-//                    setButtonTextWithSmallParenthesis(btnSpeak, "FALAR", "teclado")
-                    btnSpeak.setTextColor(Color.WHITE)
+                            // Reabilita alternância em caso de erro na verificação
+                            inputModeRadioGroup.visibility = View.VISIBLE
+                            inputModeRadioGroup.alpha = 1.0f
 
-                    inputModeRadioGroup.check(R.id.radioKeyboard)
-                    handwritingView.visibility = View.GONE
-                    typedEditText.visibility = View.VISIBLE
-                    typedEditText.requestFocus()
+                            btnSpeak.isEnabled = true
+                            btnSpeak.text = "FALAR"
+                            btnSpeak.setTextColor(Color.WHITE)
+
+                            inputModeRadioGroup.check(R.id.radioKeyboard)
+                            handwritingView.visibility = View.GONE
+                            typedEditText.visibility = View.VISIBLE
+                            typedEditText.requestFocus()
+                        }
                 }
+            }
         }
 
         // Botão FALAR
@@ -216,6 +319,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
         // Alternar entre manuscrito e teclado
         inputModeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            // Ignora mudança se o grupo estiver desabilitado (durante download)
+            if (!inputModeRadioGroup.isEnabled) {
+                return@setOnCheckedChangeListener
+            }
+
             when (checkedId) {
                 R.id.radioHandwriting -> {
                     typedEditText.clearFocus()
@@ -228,18 +336,25 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     typedEditText.visibility = View.GONE
                     recognizedTextView.text = ""
                     enterFullScreen()
+
+                    // NÃO reexibir a caixa automaticamente ao voltar para manuscrito
+                    // (só aparece durante download ou erro)
+                    // modelStatusContainer.visibility = View.VISIBLE  ← removido
                 }
                 R.id.radioKeyboard -> {
                     exitFullScreen()
                     handwritingView.visibility = View.GONE
                     typedEditText.visibility = View.VISIBLE
                     recognizedTextView.text = ""
+
                     typedEditText.isFocusable = true
                     typedEditText.isFocusableInTouchMode = true
                     typedEditText.requestFocus()
+
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.showSoftInput(typedEditText, InputMethodManager.SHOW_IMPLICIT)
-                    // Esconde status e progress no modo teclado
+
+                    // Esconde caixa e progress no modo teclado
                     modelStatusContainer.visibility = View.GONE
                     progressModel.visibility = View.GONE
                 }
@@ -397,7 +512,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         if (isHandwriting) {
             // Modo manuscrito → exige modelo pronto
             if (!modelReady) {
-                tts.speak("Aguarde, preparando reconhecimento de escrita", TextToSpeech.QUEUE_FLUSH, null, null)
+                tts.speak("O modo Manuscrito não está disponível nesta versão do Android ou inferior. Use o modo Teclado.", TextToSpeech.QUEUE_FLUSH, null, null)
                 return
             }
 
@@ -422,9 +537,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     tts.speak("Erro ao reconhecer a escrita", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
         } else {
-            // Modo TECLADO → fala direto o que foi digitado (não depende do modelReady)
+            // Modo TECLADO → fala direto o texto digitado (sem depender de modelReady)
             val text = typedEditText.text.toString().trim()
             recognizedTextView.text = text
+
             if (text.isNotBlank()) {
                 tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
             } else {
